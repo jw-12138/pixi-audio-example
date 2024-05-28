@@ -1,0 +1,26 @@
+{
+  "name": "pixi-audio-example",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "vite build && wrangler pages deploy ./dist --project-name 'pixi-audio-example'"
+  },
+  "dependencies": {
+    "howler": "^2.2.4",
+    "pixi-filters": "^6.0.3",
+    "pixi.js": "^8.1.4",
+    "vue": "^3.4.21"
+  },
+  "devDependencies": {
+    "@types/howler": "^2.2.11",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "vite": "^5.2.0"
+  }
+}
