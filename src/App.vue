@@ -197,7 +197,7 @@ const playList = ref([
   {
     url: '/lalala.mp3',
     name: 'La La La',
-    artist: 'Fauzia'
+    artist: 'Faouzia'
   }
 ])
 
@@ -309,6 +309,15 @@ function playPrev() {
       <button class="bg-neutral-700 text-white rounded text-sm px-2 py-1 mx-1" @click="play" v-show="!audioPlaying">Play</button>
       <button class="bg-neutral-700 text-white rounded text-sm px-2 py-1 mx-1" @click="stopPlaying" v-show="audioPlaying">Stop</button>
       <button class="bg-neutral-700 text-white rounded text-sm px-2 py-1 mx-1" @click="playNext">Next</button>
+    </div>
+
+    <div class="flex flex-wrap mt-4">
+      <div class="w-full text-center text-sm">
+        {{ playList[currentSong].name }}
+      </div>
+      <div class="w-full text-center text-xs italic opacity-80">
+        {{ playList[currentSong].artist }}
+      </div>
     </div>
 
     <div class="w-dvw flex justify-center mt-4">
