@@ -11,7 +11,7 @@ let analyzer = null
 let ftSizeInPow = ref(13)
 let fftSize = ref(Math.pow(2, Number(ftSizeInPow.value)))
 
-let frameWidth = 600
+let frameWidth = Math.min(window.innerWidth, 800)
 let frameHeight = 200
 
 function initAnalyzer() {
@@ -103,11 +103,70 @@ function initSoundEvents() {
   sound.value.on('stop', () => {
     audioPlaying.value = false
   })
+
+  sound.value.on('pause', () => {
+    audioPlaying.value = false
+  })
+}
+
+function finalizeSeeking() {
+  setTimeout(() => {
+    userIsSeeking.value = false
+  }, 50)
+
+  let progress = Number(seekingProgress.value) / 100
+  let shouldBeAt = sound.value.duration() * progress
+
+  sound.value.seek(shouldBeAt)
+}
+
+function parseSecondsToPlayerTime(seconds: number) {
+  let minute = Math.floor(seconds / 60)
+  let second = Math.floor(seconds % 60)
+  let milSeconds = Math.floor((seconds % 1) * 1000)
+
+  let min_str = minute + ''
+  let sec_str = second + ''
+  let mil_str = milSeconds + ''
+
+  if (minute < 10) {
+    min_str = '0' + minute
+  }
+
+  if (second < 10) {
+    sec_str = '0' + second
+  }
+
+  if (milSeconds < 100) {
+    mil_str = '0' + milSeconds
+  }
+
+  if (milSeconds < 10) {
+    mil_str = '00' + milSeconds
+  }
+
+  return min_str + ':' + sec_str + '.' + mil_str
 }
 
 onMounted(async () => {
+
+  document.getElementById('seekBar').addEventListener('mousedown', () => {
+    userIsSeeking.value = true
+  })
+
+  document.getElementById('seekBar').addEventListener('mouseup', () => {
+    finalizeSeeking()
+  })
+
+  document.getElementById('seekBar').addEventListener('touchstart', () => {
+    userIsSeeking.value = true
+  })
+
+  document.getElementById('seekBar').addEventListener('touchend', () => {
+    finalizeSeeking()
+  })
+
   changeSource(true)
-  initSoundEvents()
 
   await app.init({
     resizeTo: document.getElementById('timeDomain'),
@@ -152,10 +211,10 @@ onMounted(async () => {
       let freqPerBin = maxFreq / bufferLength
 
       // cut the frequency data which is over 20000hz
-      frequencyData = frequencyData.slice(0, Math.floor(16000 / freqPerBin))
+      frequencyData = frequencyData.slice(0, Math.floor(20000 / freqPerBin))
 
       // cut the frequency data which is under 20hz
-      frequencyData = frequencyData.slice(Math.floor(0 / freqPerBin))
+      frequencyData = frequencyData.slice(Math.floor(20 / freqPerBin))
 
       drawFreqPath(pathFreq, frequencyData)
 
@@ -198,6 +257,26 @@ const playList = ref([
     url: '/lalala.mp3',
     name: 'La La La',
     artist: 'Faouzia'
+  },
+  {
+    url: '/RAINY_NIGHT_IN_TALLINN_-_Ludwig_Goransson.mp3',
+    name: 'Rainy Night In Tallinn',
+    artist: 'Ludwig Goransson'
+  },
+  {
+    url: '/Repeat_After_Me_-_Dimitri_Vegas_Like_Mike_&_Armin_van_Buuren.mp3',
+    name: 'Repeat After Me',
+    artist: 'Dimitri Vegas Like Mike, Armin van Buuren'
+  },
+  {
+    url: 'The_One_(NGHTMRE_Remix)_-_Habstrakt.mp3',
+    name: 'The One (NGHTMRE Remix)',
+    artist: 'Habstrakt'
+  },
+  {
+    url: '/sweep.mp3',
+    name: 'Sine Wave Sweep (20hz - 20000hz)',
+    artist: 'just for the demo, try use the maximum fftSize'
   }
 ])
 
@@ -212,64 +291,26 @@ function playNext() {
   changeSource()
 }
 
-let audioSourceInitiated = ref(false)
-let audioSourceNode = null
-
 function changeSource(init: boolean = false) {
-  let isHTMLAudio = false
-  if (sound.value) {
-    isHTMLAudio = sound.value._sounds[0]._node instanceof HTMLAudioElement
-
-    if (!isHTMLAudio) {
-      sound.value.unload()
-    } else {
-      sound.value.stop()
-    }
-  } else {
-    sound.value = new Howl({
-      src: [playList.value[currentSong.value].url],
-      html5: true
-    })
-
-    isHTMLAudio = true
+  if(sound.value){
+    sound.value.unload()
   }
 
-  if (isHTMLAudio) {
-    sound.value._sounds[0]._node.src = playList.value[currentSong.value].url
-    sound.value.load()
-  } else {
-    sound.value = new Howl({
-      src: [playList.value[currentSong.value].url],
-      html5: false
-    })
-  }
+  sound.value = new Howl({
+    src: [playList.value[currentSong.value].url]
+  })
 
+  initSoundEvents()
 
   initAnalyzer()
 
-  let sound_node = sound.value._sounds[0]._node
-
-  if (isHTMLAudio) {
-    if (!audioSourceNode) {
-      audioSourceNode = audioContext.value.createMediaElementSource(sound_node)
-      audioSourceNode.connect(analyzer)
-
-      audioSourceInitiated.value = true
-    } else {
-      audioSourceNode.disconnect()
-      audioSourceNode.connect(analyzer)
-    }
-
-  } else {
-    sound_node.disconnect()
-    sound_node.connect(analyzer)
-  }
+  let soundNode = sound.value._sounds[0]._node
+  soundNode.disconnect()
+  soundNode.connect(analyzer)
 
   if (!init) {
     sound.value.play()
   }
-
-  initSoundEvents()
 }
 
 function playPrev() {
@@ -280,6 +321,26 @@ function playPrev() {
 
   changeSource()
 }
+
+function updateSeek() {
+  let duration = sound.value.duration()
+  let currentTime = sound.value.seek()
+
+  globalCurrentTime.value = currentTime
+  globalDuration.value = duration
+
+  if (!userIsSeeking.value) {
+    seekingProgress.value = currentTime / duration * 100
+  }
+}
+
+let globalDuration = ref(0)
+let globalCurrentTime = ref(0)
+
+setInterval(updateSeek, 1000 / 24)
+
+let userIsSeeking = ref(false)
+let seekingProgress = ref(0)
 
 </script>
 
@@ -318,6 +379,12 @@ function playPrev() {
       <div class="w-full text-center text-xs italic opacity-80">
         {{ playList[currentSong].artist }}
       </div>
+    </div>
+    <div class="mt-4 flex justify-center" id="seekBar">
+      <input type="range" max="100" min="0" step="0.1" v-model="seekingProgress" class="w-[500px]">
+    </div>
+    <div class="mt-2 flex justify-center text-xs opacity-80 font-mono">
+      {{ parseSecondsToPlayerTime(globalCurrentTime) }} / {{ parseSecondsToPlayerTime(globalDuration) }}
     </div>
 
     <div class="w-dvw flex justify-center mt-4">
