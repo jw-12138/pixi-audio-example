@@ -15,21 +15,14 @@ let frameWidth = 600
 let frameHeight = 200
 
 function initAnalyzer() {
-  let sound_node = sound.value._sounds[0]._node
   audioContext.value = Howler.ctx
 
   analyzer = audioContext.value.createAnalyser()
   console.log('sample rate: ', analyzer.context.sampleRate)
+
   analyzer.fftSize = fftSize.value // 2^5 to 2^15
   analyzer.smoothingTimeConstant = 0.5
 
-  if(sound_node instanceof HTMLAudioElement){
-    sound_node = audioContext.value.createMediaElementSource(sound_node)
-  } else {
-    sound_node.disconnect()
-  }
-
-  sound_node.connect(analyzer)
   analyzer.connect(audioContext.value.destination)
 
   console.log('fftSize:', fftSize.value)
@@ -113,13 +106,7 @@ function initSoundEvents() {
 }
 
 onMounted(async () => {
-  sound.value = new Howl({
-    src: [
-      '/formula_1_theme.mp3'
-    ],
-    html5: true
-  })
-
+  changeSource(true)
   initSoundEvents()
 
   await app.init({
@@ -136,7 +123,6 @@ onMounted(async () => {
   pathFreq.filters = [new AsciiFilter({
     size: 6
   })]
-
 
   app.stage.addChild(path)
   app.stage.addChild(pathFreq)
@@ -226,15 +212,63 @@ function playNext() {
   changeSource()
 }
 
-function changeSource(){
-  sound.value.unload()
-  sound.value = new Howl({
-    src: [playList.value[currentSong.value].url],
-    html5: true
-  })
+let audioSourceInitiated = ref(false)
+let audioSourceNode = null
+
+function changeSource(init: boolean = false) {
+  let isHTMLAudio = false
+  if (sound.value) {
+    isHTMLAudio = sound.value._sounds[0]._node instanceof HTMLAudioElement
+
+    if (!isHTMLAudio) {
+      sound.value.unload()
+    } else {
+      sound.value.stop()
+    }
+  } else {
+    sound.value = new Howl({
+      src: [playList.value[currentSong.value].url],
+      html5: true
+    })
+
+    isHTMLAudio = true
+  }
+
+  if (isHTMLAudio) {
+    sound.value._sounds[0]._node.src = playList.value[currentSong.value].url
+    sound.value.load()
+  } else {
+    sound.value = new Howl({
+      src: [playList.value[currentSong.value].url],
+      html5: false
+    })
+  }
+
 
   initAnalyzer()
-  sound.value.play()
+
+  let sound_node = sound.value._sounds[0]._node
+
+  if (isHTMLAudio) {
+    if (!audioSourceNode) {
+      audioSourceNode = audioContext.value.createMediaElementSource(sound_node)
+      audioSourceNode.connect(analyzer)
+
+      audioSourceInitiated.value = true
+    } else {
+      audioSourceNode.disconnect()
+      audioSourceNode.connect(analyzer)
+    }
+
+  } else {
+    sound_node.disconnect()
+    sound_node.connect(analyzer)
+  }
+
+  if (!init) {
+    sound.value.play()
+  }
+
   initSoundEvents()
 }
 
@@ -268,7 +302,6 @@ function playPrev() {
           <input type="range" min="5" max="15" v-model="ftSizeInPow">
         </div>
       </div>
-      <button @click="initAnalyzer" :disabled="audioContext !== null" class="bg-blue-500 hover:bg-blue-700 text-white py-1 px-2 text-sm rounded disabled:opacity-50 disabled:cursor-not-allowed">Enable Analyzer</button>
     </div>
 
     <div class="w-dvw flex justify-center">
