@@ -229,7 +229,8 @@ function playNext() {
 function changeSource(){
   sound.value.unload()
   sound.value = new Howl({
-    src: [playList.value[currentSong.value].url]
+    src: [playList.value[currentSong.value].url],
+    html5: true
   })
 
   initAnalyzer()
