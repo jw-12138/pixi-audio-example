@@ -23,7 +23,12 @@ function initAnalyzer() {
   analyzer.fftSize = fftSize.value // 2^5 to 2^15
   analyzer.smoothingTimeConstant = 0.5
 
-  sound_node.disconnect()
+  if(sound_node instanceof HTMLAudioElement){
+    sound_node = audioContext.value.createMediaElementSource(sound_node)
+  } else {
+    sound_node.disconnect()
+  }
+
   sound_node.connect(analyzer)
   analyzer.connect(audioContext.value.destination)
 
@@ -109,7 +114,10 @@ function initSoundEvents() {
 
 onMounted(async () => {
   sound.value = new Howl({
-    src: ['/formula_1_theme.mp3']
+    src: [
+      '/formula_1_theme.mp3'
+    ],
+    html5: true
   })
 
   initSoundEvents()
