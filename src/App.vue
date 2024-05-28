@@ -275,7 +275,7 @@ const playList = ref([
   },
   {
     url: '/sweep.mp3',
-    name: 'Sine Wave Sweep (20hz - 20000hz)',
+    name: 'Sine Wave Sweep (30hz - 20000hz)',
     artist: 'just for the demo, try use the maximum fftSize'
   }
 ])
