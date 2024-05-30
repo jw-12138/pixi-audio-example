@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import {Application, Graphics} from 'pixi.js'
-import {AsciiFilter} from "pixi-filters"
-import {ref, onMounted, watch} from 'vue'
-import {Howl, Howler} from 'howler'
+import { Application, Graphics } from 'pixi.js'
+import { AsciiFilter } from 'pixi-filters'
+import { ref, onMounted, watch } from 'vue'
+import { Howl, Howler } from 'howler'
 
-const app = new Application();
+const app = new Application()
 
 let audioContext = ref(null)
-let analyzer = null
+let analyzer: AnalyserNode
 let ftSizeInPow = ref(13)
 let fftSize = ref(Math.pow(2, Number(ftSizeInPow.value)))
 
@@ -15,14 +15,17 @@ let frameWidth = Math.min(window.innerWidth, 800)
 let frameHeight = 200
 
 function initAnalyzer() {
+  // @ts-ignore
   audioContext.value = Howler.ctx
 
+  // @ts-ignore
   analyzer = audioContext.value.createAnalyser()
   console.log('sample rate: ', analyzer.context.sampleRate)
 
   analyzer.fftSize = fftSize.value // 2^5 to 2^15
   analyzer.smoothingTimeConstant = 0.5
 
+  // @ts-ignore
   analyzer.connect(audioContext.value.destination)
 
   console.log('fftSize:', fftSize.value)
@@ -40,7 +43,7 @@ watch(ftSizeInPow, (newVal) => {
 })
 
 function uint8ArrayToArray(uint8Array: Uint8Array) {
-  let array = []
+  let array: number[] = []
 
   for (let i = 0; i < uint8Array.byteLength; i++) {
     array[i] = uint8Array[i]
@@ -75,17 +78,16 @@ function drawFreqPath(path: Graphics, data: number[]) {
 
   if (!log) {
     for (let i = 1; i < data.length; i++) {
-      path.lineTo(cellSize * i, (frameHeight) - (data[i] * 0.75))
+      path.lineTo(cellSize * i, frameHeight - data[i] * 0.75)
     }
   } else {
     let max = Math.log(data.length)
 
     for (let i = 1; i < data.length; i++) {
-      let x = Math.log(i) / max * frameWidth
-      path.lineTo(x, (frameHeight) - (data[i] * 0.75))
+      let x = (Math.log(i) / max) * frameWidth
+      path.lineTo(x, frameHeight - data[i] * 0.75)
     }
   }
-
 
   path.stroke({
     color: 0xffffff,
@@ -96,15 +98,24 @@ function drawFreqPath(path: Graphics, data: number[]) {
 const sound = ref(null)
 
 function initSoundEvents() {
-  sound.value.on('play', () => {
+  let _sound = sound.value
+
+  if(!_sound){
+    return false
+  }
+
+  // @ts-ignore
+  _sound.on('play', () => {
     audioPlaying.value = true
   })
 
-  sound.value.on('stop', () => {
+  // @ts-ignore
+  _sound.on('stop', () => {
     audioPlaying.value = false
   })
 
-  sound.value.on('pause', () => {
+  // @ts-ignore
+  _sound.on('pause', () => {
     audioPlaying.value = false
   })
 }
@@ -115,8 +126,11 @@ function finalizeSeeking() {
   }, 50)
 
   let progress = Number(seekingProgress.value) / 100
+  
+  // @ts-ignore
   let shouldBeAt = sound.value.duration() * progress
 
+  // @ts-ignore
   sound.value.seek(shouldBeAt)
 }
 
@@ -149,43 +163,51 @@ function parseSecondsToPlayerTime(seconds: number) {
 }
 
 onMounted(async () => {
+  const seekBar = document.getElementById('seekBar')
 
-  document.getElementById('seekBar').addEventListener('mousedown', () => {
-    userIsSeeking.value = true
-  })
+  if (seekBar) {
+    seekBar.addEventListener('mousedown', () => {
+      userIsSeeking.value = true
+    })
 
-  document.getElementById('seekBar').addEventListener('mouseup', () => {
-    finalizeSeeking()
-  })
+    seekBar.addEventListener('mouseup', () => {
+      finalizeSeeking()
+    })
 
-  document.getElementById('seekBar').addEventListener('touchstart', () => {
-    userIsSeeking.value = true
-  })
+    seekBar.addEventListener('touchstart', () => {
+      userIsSeeking.value = true
+    })
 
-  document.getElementById('seekBar').addEventListener('touchend', () => {
-    finalizeSeeking()
-  })
+    seekBar.addEventListener('touchend', () => {
+      finalizeSeeking()
+    })
+  }
 
   changeSource(true)
 
   await app.init({
-    resizeTo: document.getElementById('timeDomain'),
+    resizeTo: document.getElementById('timeDomain') as HTMLElement,
     resolution: window.devicePixelRatio || 1
   })
 
   const path = new Graphics()
   const pathFreq = new Graphics()
 
-  path.filters = [new AsciiFilter({
-    size: 6
-  })]
-  pathFreq.filters = [new AsciiFilter({
-    size: 6
-  })]
+  path.filters = [
+    new AsciiFilter({
+      size: 6
+    })
+  ]
+  pathFreq.filters = [
+    new AsciiFilter({
+      size: 6
+    })
+  ]
 
   app.stage.addChild(path)
   app.stage.addChild(pathFreq)
 
+  // @ts-ignore
   document.getElementById('timeDomain').appendChild(app.canvas)
 
   app.ticker.add((time) => {
@@ -200,8 +222,8 @@ onMounted(async () => {
 
       let frequencyData = uint8ArrayToArray(dataFreq)
 
-      frequencyData = frequencyData.map(el => {
-        return el / 255 * frameHeight
+      frequencyData = frequencyData.map((el) => {
+        return (el / 255) * frameHeight
       })
 
       // trim frequency data, we only need 20hz t0 20000hz
@@ -219,8 +241,8 @@ onMounted(async () => {
       drawFreqPath(pathFreq, frequencyData)
 
       // map array data to 0 - 80
-      timeDomainData = timeDomainData.map(el => {
-        return el / 255 * (frameHeight)
+      timeDomainData = timeDomainData.map((el) => {
+        return (el / 255) * frameHeight
       })
 
       drawPath(path, timeDomainData)
@@ -230,12 +252,14 @@ onMounted(async () => {
 
 function play() {
   if (sound.value) {
+    // @ts-ignore
     sound.value.play()
   }
 }
 
 function stopPlaying() {
   if (sound.value) {
+    // @ts-ignore
     sound.value.stop()
   }
 }
@@ -292,10 +316,12 @@ function playNext() {
 }
 
 function changeSource(init: boolean = false) {
-  if(sound.value){
+  if (sound.value) {
+    // @ts-ignore
     sound.value.unload()
   }
 
+  // @ts-ignore
   sound.value = new Howl({
     src: [playList.value[currentSong.value].url]
   })
@@ -304,11 +330,13 @@ function changeSource(init: boolean = false) {
 
   initAnalyzer()
 
+  // @ts-ignore
   let soundNode = sound.value._sounds[0]._node
   soundNode.disconnect()
   soundNode.connect(analyzer)
 
   if (!init) {
+    // @ts-ignore
     sound.value.play()
   }
 }
@@ -323,14 +351,17 @@ function playPrev() {
 }
 
 function updateSeek() {
+  // @ts-ignore
   let duration = sound.value.duration()
+
+  // @ts-ignore
   let currentTime = sound.value.seek()
 
   globalCurrentTime.value = currentTime
   globalDuration.value = duration
 
   if (!userIsSeeking.value) {
-    seekingProgress.value = currentTime / duration * 100
+    seekingProgress.value = (currentTime / duration) * 100
   }
 }
 
@@ -341,7 +372,6 @@ setInterval(updateSeek, 1000 / 24)
 
 let userIsSeeking = ref(false)
 let seekingProgress = ref(0)
-
 </script>
 
 <style>
@@ -352,23 +382,28 @@ let seekingProgress = ref(0)
 </style>
 
 <template>
-
   <div class="w-dvw h-dvh">
     <div class="w-dvw flex flex-wrap justify-center mb-2 pt-8">
       <div class="w-dvw flex flex-wrap justify-center">
+        <div class="w-dvw text-center">fftSize: {{ fftSize }}</div>
         <div class="w-dvw text-center">
-          fftSize: {{ fftSize }}
-        </div>
-        <div class="w-dvw text-center">
-          <input type="range" min="5" max="15" v-model="ftSizeInPow">
+          <input type="range" min="5" max="15" v-model="ftSizeInPow" />
         </div>
       </div>
     </div>
 
     <div class="w-dvw flex justify-center">
       <button class="bg-neutral-700 text-white rounded text-sm px-2 py-1 mx-1" @click="playPrev">Prev</button>
-      <button class="bg-neutral-700 text-white rounded text-sm px-2 py-1 mx-1" @click="play" v-show="!audioPlaying">Play</button>
-      <button class="bg-neutral-700 text-white rounded text-sm px-2 py-1 mx-1" @click="stopPlaying" v-show="audioPlaying">Stop</button>
+      <button class="bg-neutral-700 text-white rounded text-sm px-2 py-1 mx-1" @click="play" v-show="!audioPlaying">
+        Play
+      </button>
+      <button
+        class="bg-neutral-700 text-white rounded text-sm px-2 py-1 mx-1"
+        @click="stopPlaying"
+        v-show="audioPlaying"
+      >
+        Stop
+      </button>
       <button class="bg-neutral-700 text-white rounded text-sm px-2 py-1 mx-1" @click="playNext">Next</button>
     </div>
 
@@ -381,24 +416,22 @@ let seekingProgress = ref(0)
       </div>
     </div>
     <div class="mt-4 flex justify-center" id="seekBar">
-      <input type="range" max="100" min="0" step="0.1" v-model="seekingProgress" class="w-[500px]">
+      <input type="range" max="100" min="0" step="0.1" v-model="seekingProgress" class="w-[500px]" />
     </div>
     <div class="mt-2 flex justify-center text-xs opacity-80 font-mono">
       {{ parseSecondsToPlayerTime(globalCurrentTime) }} / {{ parseSecondsToPlayerTime(globalDuration) }}
     </div>
 
     <div class="w-dvw flex justify-center mt-4">
-      <div :style="{
-        width: frameWidth + 'px',
-        height: (frameHeight * 2) + 'px'
-      }" id="timeDomain">
-
-      </div>
+      <div
+        :style="{
+          width: frameWidth + 'px',
+          height: frameHeight * 2 + 'px'
+        }"
+        id="timeDomain"
+      ></div>
     </div>
   </div>
-
 </template>
 
-<style scoped>
-
-</style>
+<style scoped></style>
